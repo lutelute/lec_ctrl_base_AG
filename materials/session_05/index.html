@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>周波数特性シミュレータ</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            width: 100%;
+            height: 350px;
+            margin-bottom: 20px;
+            background-color: #fff;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            background-color: #f1f3f5;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .control-group {
+            text-align: center;
+        }
+
+        input[type="range"] {
+            width: 250px;
+        }
+
+        .vals {
+            font-family: monospace;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>第5章: 周波数応答の視覚化</h1>
+    <p>1次遅れ系 $G(s) = \frac{1}{Ts+1}$ に正弦波を入力したときの様子を観察しましょう。<br>
+        周波数が高くなると、出力の振幅が小さくなり、位相が遅れることを確認してください。</p>
+
+    <div class="container">
+        <div class="legend">
+            <span style="color: blue;">青: 入力 u(t)</span>
+            <span style="color: red;">赤: 出力 y(t)</span>
+        </div>
+        <canvas id="simCanvas" width="900" height="350"></canvas>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>入力周波数 $\omega$ [rad/s]</label><br>
+                <input type="range" id="freqSlider" min="0.1" max="10" step="0.1" value="1.0">
+                <div class="vals" id="freqVal">1.0 rad/s</div>
+            </div>
+
+            <div class="control-group">
+                <label>時定数 T [s]</label><br>
+                <input type="range" id="tauSlider" min="0.1" max="2.0" step="0.1" value="1.0">
+                <div class="vals" id="tauVal">T = 1.0 s</div>
+            </div>
+
+            <div class="control-group">
+                <div>ゲイン: <span id="gainVal" class="vals">0.00 dB</span></div>
+                <div>位相差: <span id="phaseVal" class="vals">0.0 deg</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const freqSlider = document.getElementById('freqSlider');
+        const tauSlider = document.getElementById('tauSlider');
+        const freqVal = document.getElementById('freqVal');
+        const tauVal = document.getElementById('tauVal');
+        const gainVal = document.getElementById('gainVal');
+        const phaseVal = document.getElementById('phaseVal');
+
+        let time = 0;
+        let omega = 1.0;
+        let T = 1.0;
+
+        function updateParams() {
+            omega = parseFloat(freqSlider.value);
+            T = parseFloat(tauSlider.value);
+            freqVal.textContent = omega.toFixed(1) + " rad/s";
+            tauVal.textContent = "T = " + T.toFixed(1) + " s";
+        }
+
+        function calculateResponse() {
+            // G(j*omega) = 1 / (1 + j*omega*T)
+            // Magnitude = 1 / sqrt(1 + (omega*T)^2)
+            // Phase = -atan(omega*T)
+            const mag = 1.0 / Math.sqrt(1 + (omega * T) ** 2);
+            const phase = -Math.atan(omega * T);
+
+            // To dB
+            const magDB = 20 * Math.log10(mag);
+            // To Degree
+            const phaseDeg = phase * 180 / Math.PI;
+
+            gainVal.textContent = magDB.toFixed(2) + " dB (" + mag.toFixed(2) + "倍)";
+            phaseVal.textContent = phaseDeg.toFixed(1) + " deg";
+
+            return { mag, phase };
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const width = canvas.width;
+            const height = canvas.height;
+            const cy = height / 2;
+            const ampScale = 0.8 * (height / 2); // Max amplitude pixels
+
+            // Draw Axes
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(width, cy); ctx.strokeStyle = '#ccc'; ctx.stroke();
+
+            const { mag, phase } = calculateResponse();
+
+            // We draw a window of time [current_time, current_time + view_width]
+            // Or better: scrolling view. Let's do scrolling view for effect or just static window?
+            // "Sine Wave Response" usually implies steady state. Let's show steady state waveforms.
+            // Just plot sin(wt) and mag*sin(wt + phi) over 2-3 periods.
+
+            // Determine time window to show ~3 periods
+            const period = 2 * Math.PI / omega;
+            const viewDuration = 3 * period > 10 ? 10 : 3 * period;
+            const scaleX = width / viewDuration;
+
+            // Draw Input (Blue)
+            ctx.beginPath();
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 2;
+            for (let x = 0; x < width; x++) {
+                const t = x / scaleX;
+                const val = Math.sin(omega * t); // Assuming start at t=0
+                ctx.lineTo(x, cy - val * ampScale);
+            }
+            ctx.stroke();
+
+            // Draw Output (Red)
+            ctx.beginPath();
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 3;
+            // Shift x by phase. Phase is in radians.
+            // sin(wt + phi). at t=0, val = sin(phi)
+            for (let x = 0; x < width; x++) {
+                const t = x / scaleX;
+                const val = mag * Math.sin(omega * t + phase);
+                const py = cy - val * ampScale;
+                if (x === 0) ctx.moveTo(x, py);
+                else ctx.lineTo(x, py);
+            }
+            ctx.stroke();
+
+            // Draw Phase Shift Arrow (approximate)
+            // Find a zero crossing for input
+            const tZeroIn = Math.PI / omega; // First downward crossing? No, upward at 0, downward at pi/w. 
+            // upward crossing at 2pi/w.
+
+            // Draw lines/text... maybe too complex to annotate dynamically perfectly.
+            // Just the text values are good.
+        }
+
+        freqSlider.addEventListener('input', () => { updateParams(); draw(); });
+        tauSlider.addEventListener('input', () => { updateParams(); draw(); });
+
+        updateParams();
+        draw();
+    </script>
+</body>
+
+</html>

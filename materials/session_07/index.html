@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中間試験：復習クイズ</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .quiz-item {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+
+        .question {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .options button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 10px;
+            margin-bottom: 5px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .options button:hover {
+            background-color: #f1f3f5;
+        }
+
+        .options button.correct {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .options button.wrong {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .calc-section {
+            margin-top: 30px;
+            background-color: #e9ecef;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        input[type="text"] {
+            padding: 5px;
+            width: 200px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>第7章: 中間試験復習クイズ</h1>
+    <p>これまでの知識を確認しましょう。</p>
+
+    <div class="container">
+        <div id="quiz-container">
+            <!-- Quizzes injected here -->
+        </div>
+
+        <div class="calc-section">
+            <h3>簡易計算ツール: ステップ応答の最終値</h3>
+            <p>システム $G(s) = \frac{K}{Ts+1}$ のステップ応答の最終値 $\lim_{t\to\infty} y(t)$ を計算します。</p>
+            <p>K = <input type="number" id="kVal" value="5">, T = <input type="number" id="tVal" value="2"></p>
+            <button onclick="calcFinal()"
+                style="padding: 5px 10px; background:#007bff; color:white; border:none; border-radius:4px;">計算</button>
+            <p>結果: <span id="calcResult" style="font-weight:bold;">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            {
+                q: "次のうち、線形時不変(LTI)システムの性質として正しいものはどれか？",
+                options: [
+                    "入力の大きさが2倍になると、出力の大きさは4倍になる。",
+                    "重ね合わせの理が成り立つ。",
+                    "システムの状態は時間とともにランダムに変化する。",
+                    "入力の周波数を変えると、出力の周波数も変化する（高調波歪みが生じる）。"
+                ],
+                ans: 1 // 0-indexed
+            },
+            {
+                q: "伝達関数 G(s) = 1/(s+2) の極はどこか？",
+                options: [
+                    "s = 2",
+                    "s = 0",
+                    "s = -2",
+                    "s = 1"
+                ],
+                ans: 2
+            },
+            {
+                q: "ラプラス変換 L[1] (単位ステップ関数) はいくつか？",
+                options: [
+                    "1",
+                    "1/s",
+                    "s",
+                    "e^-s"
+                ],
+                ans: 1
+            },
+            {
+                q: "フィードバック制御の主な目的として正しくないものは？",
+                options: [
+                    "外乱の影響を抑制する。",
+                    "システムの安定性を向上させる。",
+                    "制御対象のパラメータ変動にロバスト（頑健）にする。",
+                    "システムのコストをゼロにする。"
+                ],
+                ans: 3
+            }
+        ];
+
+        const quizContainer = document.getElementById('quiz-container');
+
+        questions.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'quiz-item';
+
+            const qEl = document.createElement('div');
+            qEl.className = 'question';
+            qEl.textContent = `Q${idx + 1}. ${item.q}`;
+            div.appendChild(qEl);
+
+            const optDiv = document.createElement('div');
+            optDiv.className = 'options';
+
+            item.options.forEach((optText, optIdx) => {
+                const btn = document.createElement('button');
+                btn.textContent = optText;
+                btn.onclick = () => {
+                    // Disable all buttons in this question
+                    Array.from(optDiv.children).forEach(b => b.disabled = true);
+
+                    if (optIdx === item.ans) {
+                        btn.className = 'correct';
+                        btn.textContent += "  ⭕ 正解！";
+                    } else {
+                        btn.className = 'wrong';
+                        btn.textContent += "  ❌ 不正解...";
+                        // Highlight correct one
+                        optDiv.children[item.ans].className = 'correct';
+                        optDiv.children[item.ans].textContent += "  (正解)";
+                    }
+                };
+                optDiv.appendChild(btn);
+            });
+            div.appendChild(optDiv);
+            quizContainer.appendChild(div);
+        });
+
+        function calcFinal() {
+            const K = parseFloat(document.getElementById('kVal').value);
+            // Final Value Theorem: lim s->0 s * (1/s) * G(s) = G(0)
+            // G(0) = K / (0+1) = K
+            // For step input u(t)=1 -> U(s)=1/s
+            // y_inf = lim s->0 s * Y(s) = lim s->0 s * G(s) * (1/s) = G(0) = K
+            document.getElementById('calcResult').textContent = K + " (理論値: G(0) = K)";
+        }
+    </script>
+</body>
+
+</html>

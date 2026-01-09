@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PID制御チューニング</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            width: 100%;
+            height: 350px;
+            background-color: #fff;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #eee;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .control-row label {
+            width: 150px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            flex: 1;
+        }
+
+        .val-disp {
+            font-family: monospace;
+            width: 60px;
+            text-align: right;
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .tips {
+            margin-top: 20px;
+            font-size: 0.9em;
+            background: #e2e6ea;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>第14章: PID制御器のチューニング</h1>
+    <p>バネ・マス・ダンパ系（制御対象）に対して、PIDゲインを調整して思い通りの応答（ステップ応答）を実現しましょう。</p>
+
+    <div class="container">
+        <canvas id="simCanvas" width="900" height="350"></canvas>
+
+        <div class="controls">
+            <div class="control-row">
+                <label>比例ゲイン (Kp)</label>
+                <input type="range" id="kpSlider" min="0" max="100" step="1" value="10">
+                <span id="kpVal" class="val-disp">10</span>
+            </div>
+            <div class="control-row">
+                <label>積分ゲイン (Ki)</label>
+                <input type="range" id="kiSlider" min="0" max="50" step="0.1" value="0">
+                <span id="kiVal" class="val-disp">0</span>
+            </div>
+            <div class="control-row">
+                <label>微分ゲイン (Kd)</label>
+                <input type="range" id="kdSlider" min="0" max="50" step="0.1" value="0">
+                <span id="kdVal" class="val-disp">0</span>
+            </div>
+            <div class="control-row" style="justify-content: center; margin-top: 10px;">
+                <button onclick="resetSim()">リセットして再開</button>
+            </div>
+        </div>
+
+        <div class="tips">
+            <strong>ヒント:</strong><br>
+            1. まず <strong>Kp</strong> だけを上げてみましょう。速くなりますが、振動も増え、定常偏差が残ります。<br>
+            2. 次に <strong>Ki</strong> を少し入れると、定常偏差が消えて目標値(1.0)に一致します。<br>
+            3. 振動が大きい場合は <strong>Kd</strong> を入れてブレーキをかけましょう。入れすぎるとガタつきます。
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const kpSlider = document.getElementById('kpSlider');
+        const kiSlider = document.getElementById('kiSlider');
+        const kdSlider = document.getElementById('kdSlider');
+        const kpDisp = document.getElementById('kpVal');
+        const kiDisp = document.getElementById('kiVal');
+        const kdDisp = document.getElementById('kdVal');
+
+        // Plant: Mass-Spring-Damper
+        // m y_ddot + c y_dot + k y = u
+        const m = 1.0;
+        const c = 0.5; // low damping
+        const k = 1.0;
+
+        // State
+        let time = 0;
+        let y = 0;
+        let y_dot = 0;
+        const dt = 0.02; // ms
+
+        // Controller State
+        let i_err = 0;
+        let last_err = 0;
+
+        // History
+        const maxPoints = 500;
+        let dataY = new Array(maxPoints).fill(0);
+        let dataT = new Array(maxPoints).fill(0); // Optional if fixed grid
+
+        let animId;
+        let isRunning = true;
+
+        function update() {
+            // Get Gains
+            const Kp = parseFloat(kpSlider.value);
+            const Ki = parseFloat(kiSlider.value);
+            const Kd = parseFloat(kdSlider.value);
+
+            kpDisp.textContent = Kp;
+            kiDisp.textContent = Ki;
+            kdDisp.textContent = Kd;
+
+            // Target Step
+            const r = (time > 0.5) ? 1.0 : 0.0;
+
+            // Error
+            const err = r - y;
+            i_err += err * dt;
+            const d_err = (err - last_err) / dt;
+            last_err = err;
+
+            // PID Output
+            // u = Kp*e + Ki*int + Kd*e_dot
+            let u = Kp * err + Ki * i_err + Kd * d_err;
+
+            // Saturation (Optional realism)
+            if (u > 200) u = 200;
+            if (u < -200) u = -200;
+
+            // Plant Dynamics
+            // y_ddot = (u - c y_dot - k y) / m
+            const y_ddot = (u - c * y_dot - k * y) / m;
+
+            y_dot += y_ddot * dt;
+            y += y_dot * dt;
+            time += dt;
+
+            // Store
+            dataY.shift();
+            dataY.push(y);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const h2 = h / 2;
+
+            // Axes
+            ctx.beginPath(); ctx.strokeStyle = '#ccc';
+            ctx.moveTo(0, h2); ctx.lineTo(w, h2); ctx.stroke(); // y=0 axis
+
+            // Target Line (y=1)
+            // Scale: let y=1 be 100px up
+            const scaleY = 100;
+            const y1 = h2 - 1.0 * scaleY;
+
+            ctx.beginPath(); ctx.strokeStyle = 'green'; ctx.setLineDash([5, 5]);
+            ctx.moveTo(0, y1); ctx.lineTo(w, y1); ctx.stroke(); ctx.setLineDash([]);
+            ctx.fillStyle = 'green'; ctx.fillText("Target (1.0)", 5, y1 - 5);
+
+            // Response
+            ctx.beginPath(); ctx.strokeStyle = 'blue'; ctx.lineWidth = 2;
+            dataY.forEach((val, i) => {
+                const x = (i / maxPoints) * w;
+                const yPos = h2 - val * scaleY;
+                // Clip for visual sanity
+                // if (yPos < 0 || yPos > h) ... let canvas clip it
+                if (i === 0) ctx.moveTo(x, yPos); else ctx.lineTo(x, yPos);
+            });
+            ctx.stroke();
+
+            // Current Time Marker (it's always sliding window essentially, but here we just shift data)
+            // It looks like an oscilloscope.
+        }
+
+        function loop() {
+            if (!isRunning) return;
+            for (let i = 0; i < 5; i++) update(); // Speed up sim relative to draw
+            draw();
+            animId = requestAnimationFrame(loop);
+        }
+
+        function resetSim() {
+            time = 0; y = 0; y_dot = 0; i_err = 0; last_err = 0;
+            dataY.fill(0);
+        }
+
+        kpSlider.addEventListener('input', () => { kpDisp.textContent = kpSlider.value; });
+        kiSlider.addEventListener('input', () => { kiDisp.textContent = kiSlider.value; });
+        kdSlider.addEventListener('input', () => { kdDisp.textContent = kdSlider.value; });
+
+        loop();
+    </script>
+</body>
+
+</html>

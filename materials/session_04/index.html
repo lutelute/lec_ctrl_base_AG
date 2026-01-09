@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>極・零点配置とインパルス応答</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .pane {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            flex: 1 1 350px;
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            width: 100%;
+            height: 350px;
+            background-color: #fff;
+            cursor: crosshair;
+        }
+
+        .controls {
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin-right: 5px;
+        }
+
+        button:hover {
+            background-color: #5a6268;
+        }
+
+        button.active {
+            background-color: #007bff;
+        }
+
+        .info {
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>第4章: 極・零点とシステムの応答</h1>
+    <p>複素平面($s$平面)上に「極 (×)」と「零点 (○)」を配置して、インパルス応答がどう変化するか確認しましょう。</p>
+
+    <div class="container">
+        <!-- s-Plane -->
+        <div class="pane">
+            <h3>1. ポール・ゼロ配置 ($s$平面)</h3>
+            <canvas id="pzCanvas" width="400" height="400"></canvas>
+            <div class="controls">
+                モード:
+                <button id="btnPole" class="active">極 (Pole) 追加/移動</button>
+                <button id="btnZero">零点 (Zero) 追加/移動</button>
+                <button id="btnClear" style="background-color: #dc3545;">クリア</button>
+            </div>
+            <p style="font-size:0.9em; color:#666;">クリックで追加、ドラッグで移動。極は安定性、零点は応答形状に影響します。</p>
+        </div>
+
+        <!-- Impulse Response -->
+        <div class="pane">
+            <h3>2. インパルス応答 $g(t)$</h3>
+            <canvas id="respCanvas" width="400" height="400"></canvas>
+            <div class="info" id="statusInfo">G(s) = 1</div>
+        </div>
+    </div>
+
+    <script>
+        const pzCanvas = document.getElementById('pzCanvas');
+        const pzCtx = pzCanvas.getContext('2d');
+        const respCanvas = document.getElementById('respCanvas');
+        const respCtx = respCanvas.getContext('2d');
+        const statusInfo = document.getElementById('statusInfo');
+
+        // State
+        let poles = [{ x: -1, y: 2 }, { x: -1, y: -2 }]; // Start with stable oscillation
+        let zeros = [];
+        let mode = 'pole'; // 'pole' or 'zero'
+        let draggedItem = null;
+        let draggedType = null; // 'pole' or 'zero'
+
+        const scale = 40; // pixels per unit
+        const origin = { x: pzCanvas.width / 2, y: pzCanvas.height / 2 };
+
+        // UI Handlers
+        document.getElementById('btnPole').onclick = () => setMode('pole');
+        document.getElementById('btnZero').onclick = () => setMode('zero');
+        document.getElementById('btnClear').onclick = () => {
+            poles = []; zeros = []; update();
+        };
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('btnPole').className = (m === 'pole' ? 'active' : '');
+            document.getElementById('btnZero').className = (m === 'zero' ? 'active' : '');
+        }
+
+        // Math Helpers
+        function getMousePos(evt) {
+            const rect = pzCanvas.getBoundingClientRect();
+            return {
+                x: (evt.clientX - rect.left - origin.x) / scale,
+                y: -(evt.clientY - rect.top - origin.y) / scale
+            };
+        }
+
+        function dist(p1, p2) {
+            return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+        }
+
+        // Draw s-plane
+        function drawPZ() {
+            pzCtx.clearRect(0, 0, pzCanvas.width, pzCanvas.height);
+
+            // Grid
+            pzCtx.strokeStyle = '#f0f0f0';
+            for (let x = 0; x <= pzCanvas.width; x += scale) { pzCtx.beginPath(); pzCtx.moveTo(x, 0); pzCtx.lineTo(x, pzCanvas.height); pzCtx.stroke(); }
+            for (let y = 0; y <= pzCanvas.height; y += scale) { pzCtx.beginPath(); pzCtx.moveTo(0, y); pzCtx.lineTo(pzCanvas.width, y); pzCtx.stroke(); }
+
+            // Axes
+            pzCtx.strokeStyle = '#888';
+            pzCtx.beginPath(); pzCtx.moveTo(0, origin.y); pzCtx.lineTo(pzCanvas.width, origin.y); pzCtx.stroke();
+            pzCtx.beginPath(); pzCtx.moveTo(origin.x, 0); pzCtx.lineTo(origin.x, pzCanvas.height); pzCtx.stroke();
+
+            // Items
+            // Poles (x)
+            pzCtx.font = "bold 20px Arial";
+            pzCtx.textAlign = "center";
+            pzCtx.textBaseline = "middle";
+            poles.forEach(p => {
+                const px = origin.x + p.x * scale;
+                const py = origin.y - p.y * scale;
+                pzCtx.fillStyle = '#dc3545';
+                pzCtx.fillText("×", px, py);
+            });
+
+            // Zeros (o)
+            zeros.forEach(z => {
+                const px = origin.x + z.x * scale;
+                const py = origin.y - z.y * scale;
+                pzCtx.strokeStyle = '#007bff';
+                pzCtx.lineWidth = 2;
+                pzCtx.beginPath();
+                pzCtx.arc(px, py, 6, 0, Math.PI * 2);
+                pzCtx.stroke();
+            });
+        }
+
+        // calculate impulse response numerically for simplicity and robustness
+        // Inverse Laplace of G(s) = K * prod(s-z) / prod(s-p)
+        // We will do time marching simulation: x_dot = A x + B u, y = C x + D u
+        // Construction of State Space from Poles/Zeros is complex for arbitrary numbers.
+        // Simplified approach: Limit to max 5 poles/zeros or use numerical inverse Laplace (difficult in JS).
+        // Alternative: Evaluate frequency response and use IFFT? No.
+        // Let's use State Space realization (Observable Canonical Form) from transfer function coefficients.
+
+        // 1. Expand (s-p1)(s-p2)... to coeff [1, a1, a2...]
+        function polyFromRoots(roots) {
+            // roots is array of complex {r, i}
+            // (s - (r+ji))(s - (r-ji)) = s^2 - 2r s + (r^2+i^2)
+            // Just standard polynomial multiplication.
+            let poly = [{ r: 1, i: 0 }]; // Starts with 1
+
+            roots.forEach(root => {
+                // multiply poly by (s - root)
+                // new_coeff[k] = old_coeff[k-1]*1 - old_coeff[k]*root
+                const newPoly = [];
+                for (let i = 0; i <= poly.length; i++) {
+                    let term1 = (i > 0) ? poly[i - 1] : { r: 0, i: 0 };
+                    let term2 = (i < poly.length) ? poly[i] : { r: 0, i: 0 };
+
+                    // term1 * 1 - term2 * root
+                    let valR = term1.r - (term2.r * root.r - term2.i * root.i);
+                    let valI = term1.i - (term2.r * root.i + term2.i * root.r);
+                    newPoly.push({ r: valR, i: valI });
+                }
+                poly = newPoly;
+            });
+            // Return real parts (assuming inputs are conjugate pairs or real)
+            return poly.map(c => c.r);
+        }
+
+        function simulateImpulse(poles, zeros) {
+            // Convert to coeffs
+            // Numerator N(s) from zeros
+            // Denominator D(s) from poles
+            // G(s) = N(s) / D(s)
+
+            // To handle conjugates correctly, we just pass all poles/zeros as complex numbers
+            const pC = poles.map(p => ({ r: p.x, i: p.y }));
+            const zC = zeros.map(z => ({ r: z.x, i: z.y }));
+
+            let den = polyFromRoots(pC); // High order to low order: s^n + a1 s^{n-1} ...
+            let num = polyFromRoots(zC);
+
+            // Normalize so leading den coeff is 1 (it is already)
+            // Ensure num degree <= den degree for causality (if not, impulse response has derivatives of delta)
+            if (num.length > den.length) {
+                // Improper transfer function - just clamp or show error
+                statusInfo.textContent = "Error: #Zeros > #Poles (非因果的)";
+                return null;
+            }
+
+            // Pad num with zeros
+            const n = den.length - 1; // System order
+            const m = num.length - 1;
+            const numPadded = new Array(n - m).fill(0).concat(num);
+
+            // State Space (Controllable Canonical Form)
+            // x_dot = [0 1 0...; 0 0 1...; -an ... -a1] x + [0 ... 0 1]' u
+            // y = [bn-an*b0 ... b1-a1*b0] x + b0 u
+            // Actually let's use simple numerical integration of ODE.
+            // D(s) Y(s) = N(s) U(s)
+            // y^(n) + a1 y^(n-1) + ... an y = b0 u^(n) + ... bn u
+            // This is hard to simulate directly with u=delta.
+            // Better: use state space.
+
+            // Re-map coeffs: den = [1, a1, a2, ... an]
+            // num = [b0, b1, ... bn] (padded)
+
+            // A matrix (Companion form)
+            // size n x n
+            //       0 1 0 ...
+            //       0 0 1 ...
+            //      -an ... -a1
+
+            // B vector = [0 ... 0 1]^T
+
+            // C vector
+            // Y(s)/U(s) = (b0 s^n + ... + bn) / (s^n + a1 s^n-1 + ... + an)
+            // = b0 + ( (b1-b0 a1)s^n-1 + ... ) / D(s)
+            // This is getting complicated to implement from scratch in one file.
+
+            // Fallback: Analytical sum of residues?
+            // f(t) = sum( R_i * e^{p_i t} )
+            // Residue R_i = Limit(s->pi) (s-pi) G(s)
+            // This works well for distinct poles. For repeated poles, we need derivatives.
+            // Let's assume distinct poles for this demo to keep it robust enough.
+
+            let timeData = [];
+            const dt = 0.05;
+            const maxT = 10.0;
+
+            // Check for repeated poles approximately
+            // Just add small epsilon jitter to avoid division by zero
+            const pUnique = pC.map((p, i) => ({ r: p.r + i * 0.0001, i: p.i + i * 0.0001 }));
+
+            for (let t = 0; t <= maxT; t += dt) {
+                let y = 0;
+                // Sum of residues
+                // G(s) = K * prod(s-z) / prod(s-p)
+                // Residue at p_k is: K * prod(pk-z) / prod(pk-pj for j!=k) * e^{pk*t}
+
+                // If order of num == order of den, there is a direct feedthrough term (Delta function)
+                // We only plot t > 0, so delta is not visible, only its effect? 
+                // Actually impulse response of strictly proper part.
+                // Proper: N <= D. Strictly proper: N < D.
+                // If N=D, G(s) = constant + G_strict(s). The constant is delta(t). We ignore drawing delta.
+
+                pUnique.forEach((pk, k) => {
+                    // Numerator part: prod(pk - z)
+                    let numVal = { r: 1, i: 0 };
+                    zC.forEach(z => {
+                        // (pk - z)
+                        let val = { r: pk.r - z.r, i: pk.i - z.i };
+                        // multiply
+                        let nr = numVal.r * val.r - numVal.i * val.i;
+                        let ni = numVal.r * val.i + numVal.i * val.r;
+                        numVal = { r: nr, i: ni };
+                    });
+
+                    // Denominator part: prod(pk - pj) for j!=k
+                    let denVal = { r: 1, i: 0 };
+                    pUnique.forEach((pj, j) => {
+                        if (k === j) return;
+                        let val = { r: pk.r - pj.r, i: pk.i - pj.i };
+                        let dr = denVal.r * val.r - denVal.i * val.i;
+                        let di = denVal.r * val.i + denVal.i * val.r;
+                        denVal = { r: dr, i: di };
+                    });
+
+                    // Residue = num / den
+                    // (nr + j ni) / (dr + j di) = (nr dr + ni di)/(dr^2+di^2) + j...
+                    let mag2 = denVal.r ** 2 + denVal.i ** 2;
+                    let resR = (numVal.r * denVal.r + numVal.i * denVal.i) / mag2;
+                    let resI = (numVal.i * denVal.r - numVal.r * denVal.i) / mag2;
+
+                    // term = Residue * e^{pk * t}
+                    // e^{(sig + j omg)t} = e^{sig t} (cos + j sin)
+                    let expPart = Math.exp(pk.r * t);
+                    let cosPart = Math.cos(pk.i * t);
+                    let sinPart = Math.sin(pk.i * t); // pk.i includes sign
+
+                    // (resR + j resI) * expPart * (cos + j sin)
+                    // We only want Real part of result.
+                    // Actually, since poles come in conjugates, imaginary parts cancel out.
+                    // We just sum them all and take real part.
+
+                    let termR = expPart * (resR * cosPart - resI * sinPart);
+                    y += termR;
+                });
+
+                timeData.push(y);
+            }
+            return timeData;
+        }
+
+        function drawResponse() {
+            respCtx.clearRect(0, 0, respCanvas.width, respCanvas.height);
+
+            // Grid
+            respCtx.strokeStyle = '#f5f5f5';
+            respCtx.lineWidth = 1;
+            const timeScale = 40;
+            const valScale = 40;
+            const tOrigin = { x: 30, y: respCanvas.height / 2 };
+
+            respCtx.beginPath(); respCtx.moveTo(0, tOrigin.y); respCtx.lineTo(respCanvas.width, tOrigin.y); respCtx.strokeStyle = '#888'; respCtx.stroke(); // t-axis
+            respCtx.beginPath(); respCtx.moveTo(tOrigin.x, 0); respCtx.lineTo(tOrigin.x, respCanvas.height); respCtx.stroke(); // y-axis
+
+            const data = simulateImpulse(poles, zeros);
+            if (!data) return;
+
+            respCtx.beginPath();
+            respCtx.strokeStyle = '#28a745';
+            respCtx.lineWidth = 2;
+
+            data.forEach((val, i) => {
+                const px = tOrigin.x + i * (0.05 * timeScale); // scale dt=0.05
+                const py = tOrigin.y - val * valScale;
+                if (i === 0) respCtx.moveTo(px, py);
+                else respCtx.lineTo(px, py);
+            });
+            respCtx.stroke();
+
+            // Update info text
+            let pText = poles.map(p => `(${p.x.toFixed(1)}${p.y >= 0 ? '+' : ''}${p.y.toFixed(1)}j)`).join(", ");
+            if (poles.length === 0) pText = "None";
+            statusInfo.textContent = `Poles: [${pText}]`;
+        }
+
+        function update() {
+            drawPZ();
+            drawResponse();
+        }
+
+        // Mouse Events
+        pzCanvas.onmousedown = (e) => {
+            const p = getMousePos(e);
+            // Check if clicking existing
+            const clickRadius = 0.5;
+            let found = -1;
+
+            // Check poles
+            found = poles.findIndex(po => dist(po, p) < clickRadius);
+            if (found >= 0) {
+                if (e.shiftKey) { // Delete
+                    poles.splice(found, 1);
+                } else {
+                    draggedItem = poles[found];
+                    draggedType = 'pole';
+                }
+                update(); return;
+            }
+
+            // Check zeros
+            found = zeros.findIndex(z => dist(z, p) < clickRadius);
+            if (found >= 0) {
+                if (e.shiftKey) {
+                    zeros.splice(found, 1);
+                } else {
+                    draggedItem = zeros[found];
+                    draggedType = 'zero';
+                }
+                update(); return;
+            }
+
+            // Create new
+            if (mode === 'pole') {
+                const newP = { x: Math.round(p.x * 2) / 2, y: Math.round(p.y * 2) / 2 };
+                poles.push(newP);
+                // Add conjugate if complex
+                if (Math.abs(newP.y) > 0.1) poles.push({ x: newP.x, y: -newP.y });
+            } else {
+                const newZ = { x: Math.round(p.x * 2) / 2, y: Math.round(p.y * 2) / 2 };
+                zeros.push(newZ);
+                if (Math.abs(newZ.y) > 0.1) zeros.push({ x: newZ.x, y: -newZ.y });
+            }
+            update();
+        };
+
+        pzCanvas.onmousemove = (e) => {
+            if (draggedItem) {
+                const p = getMousePos(e);
+                draggedItem.x = p.x;
+                draggedItem.y = p.y; // Simplified dragging (not locking conjugate pairs perfectly for drag, but usable)
+                update();
+            }
+        };
+
+        pzCanvas.onmouseup = () => { draggedItem = null; };
+
+        update();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>状態平面 (位相平面) の可視化</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .pane {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            flex: 1 1 400px;
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            width: 100%;
+            height: 400px;
+            background-color: #fff;
+            cursor: pointer;
+        }
+
+        .controls {
+            margin-top: 10px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .matrix-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="number"] {
+            width: 60px;
+            padding: 4px;
+            text-align: center;
+            font-family: monospace;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .presets {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .presets button {
+            background-color: #6c757d;
+            font-size: 0.85em;
+        }
+
+        .info {
+            font-family: monospace;
+            margin-top: 10px;
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>第6章: 状態平面軌跡 (Phase Portrait)</h1>
+    <p>2次元システム $\dot{x} = Ax$ の状態軌跡を描画します。<br>
+        グラフ上をクリックして初期状態 $x(0)$ を設定し、そこからの軌跡を確認しましょう。</p>
+
+    <div class="container">
+        <!-- Phase Plane -->
+        <div class="pane">
+            <canvas id="phaseCanvas" width="450" height="450"></canvas>
+            <div class="info" id="eigValInfo">Eigenvalues: </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="pane">
+            <h3>システム行列 A</h3>
+            <div class="matrix-input">
+                dx1/dt = <input type="number" id="a11" step="0.5" value="-1"> x1 + <input type="number" id="a12"
+                    step="0.5" value="1"> x2
+            </div>
+            <div class="matrix-input">
+                dx2/dt = <input type="number" id="a21" step="0.5" value="-0.5"> x1 + <input type="number" id="a22"
+                    step="0.5" value="-1"> x2
+            </div>
+            <br>
+            <button id="updateBtn" style="width: 100%; font-size: 1.1em;">更新 & クリア</button>
+
+            <h3>プリセット</h3>
+            <div class="presets">
+                <button onclick="setA(-1, 0, 0, -2)">安定ノード (Stable Node)</button>
+                <button onclick="setA(1, 0, 0, 2)">不安定ノード (Unstable Node)</button>
+                <button onclick="setA(-1, -1, 4, -1)">安定スパイラル (Stable Focus)</button>
+                <button onclick="setA(0, 1, -1, 0)">中心 (Center)</button>
+                <button onclick="setA(1, 0, 0, -1)">サドル (Saddle Point)</button>
+            </div>
+
+            <p style="font-size:0.9em; margin-top:20px; color:#666;">
+                <strong>見方:</strong><br>
+                横軸: $x_1$, 縦軸: $x_2$。<br>
+                矢印はベクトル場（状態の変化方向）を表します。<br>
+                クリックした点から青い線（軌跡）が伸びていきます。
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('phaseCanvas');
+        const ctx = canvas.getContext('2d');
+        const eigInfo = document.getElementById('eigValInfo');
+
+        let A = [[-1, 1], [-0.5, -1]];
+        let trajectories = [];
+        const scale = 40; // pixels per unit
+        const origin = { x: canvas.width / 2, y: canvas.height / 2 };
+        const dt = 0.05;
+
+        function setA(a11, a12, a21, a22) {
+            document.getElementById('a11').value = a11;
+            document.getElementById('a12').value = a12;
+            document.getElementById('a21').value = a21;
+            document.getElementById('a22').value = a22;
+            updateSystem();
+        }
+
+        function updateSystem() {
+            A[0][0] = parseFloat(document.getElementById('a11').value);
+            A[0][1] = parseFloat(document.getElementById('a12').value);
+            A[1][0] = parseFloat(document.getElementById('a21').value);
+            A[1][1] = parseFloat(document.getElementById('a22').value);
+
+            trajectories = []; // Clear old lines
+            calcEigenvalues();
+            draw();
+        }
+
+        function calcEigenvalues() {
+            // det(sI - A) = s^2 - tr(A)s + det(A) = 0
+            const tr = A[0][0] + A[1][1];
+            const det = A[0][0] * A[1][1] - A[0][1] * A[1][0];
+            const D = tr * tr - 4 * det;
+
+            let msg = "";
+            if (D >= 0) {
+                const l1 = (tr + Math.sqrt(D)) / 2;
+                const l2 = (tr - Math.sqrt(D)) / 2;
+                msg = `λ1=${l1.toFixed(2)}, λ2=${l2.toFixed(2)}`;
+            } else {
+                const real = tr / 2;
+                const imag = Math.sqrt(-D) / 2;
+                msg = `λ=${real.toFixed(2)} ± j${imag.toFixed(2)}`;
+            }
+            eigInfo.textContent = "Eigenvalues: " + msg;
+        }
+
+        function getDeriv(x1, x2) {
+            return {
+                dx1: A[0][0] * x1 + A[0][1] * x2,
+                dx2: A[1][0] * x1 + A[1][1] * x2
+            };
+        }
+
+        function drawVectorField() {
+            ctx.strokeStyle = '#ddd';
+            ctx.fillStyle = '#ddd';
+            const step = 40; // pixel step
+
+            for (let px = 0; px <= canvas.width; px += step) {
+                for (let py = 0; py <= canvas.height; py += step) {
+                    const x1 = (px - origin.x) / scale;
+                    const x2 = -(py - origin.y) / scale;
+
+                    const d = getDeriv(x1, x2);
+                    const len = Math.sqrt(d.dx1 ** 2 + d.dx2 ** 2);
+                    if (len < 0.01) continue;
+
+                    // Normalized arrow
+                    const nx = d.dx1 / len * 15; // 15px length
+                    const ny = -d.dx2 / len * 15; // Invert y for canvas
+
+                    // Draw arrow
+                    ctx.beginPath();
+                    ctx.moveTo(px, py);
+                    ctx.lineTo(px + nx, py + ny);
+                    ctx.stroke();
+
+                    // Dot
+                    ctx.fillRect(px - 1, py - 1, 2, 2);
+                }
+            }
+        }
+
+        function drawTrajectories() {
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 2;
+
+            trajectories.forEach(traj => {
+                ctx.beginPath();
+                let start = true;
+                traj.forEach(pt => {
+                    const px = origin.x + pt.x * scale;
+                    const py = origin.y - pt.y * scale;
+                    if (start) { ctx.moveTo(px, py); start = false; }
+                    else ctx.lineTo(px, py);
+
+                    // Stop drawing if out of bounds to save perf
+                    // (But we store them anyway)
+                });
+                ctx.stroke();
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Axes
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, origin.y); ctx.lineTo(canvas.width, origin.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(origin.x, 0); ctx.lineTo(origin.x, canvas.height); ctx.stroke();
+
+            drawVectorField();
+            drawTrajectories();
+        }
+
+        // Simulate one step for all active trajectories
+        function loop() {
+            // Extend standard trajectories
+            trajectories.forEach(traj => {
+                if (traj.length > 500) return; // Limit length
+                const last = traj[traj.length - 1];
+
+                // RK4 integration for stability
+                const k1 = getDeriv(last.x, last.y);
+                const x1 = last.x + 0.5 * dt * k1.dx1;
+                const y1 = last.y + 0.5 * dt * k1.dx2;
+
+                const k2 = getDeriv(x1, y1);
+                const x2 = last.x + 0.5 * dt * k2.dx1;
+                const y2 = last.y + 0.5 * dt * k2.dx2;
+
+                const k3 = getDeriv(x2, y2);
+                const x3 = last.x + dt * k3.dx1;
+                const y3 = last.y + dt * k3.dx2;
+
+                const k4 = getDeriv(x3, y3);
+
+                const nx = last.x + (dt / 6) * (k1.dx1 + 2 * k2.dx1 + 2 * k3.dx1 + k4.dx1);
+                const ny = last.y + (dt / 6) * (k1.dx2 + 2 * k2.dx2 + 2 * k3.dx2 + k4.dx2);
+
+                // Check bounds roughly
+                if (Math.abs(nx) > 10 || Math.abs(ny) > 10) return; // Stop if diverges too far
+
+                traj.push({ x: nx, y: ny });
+            });
+
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Interaction
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left - origin.x) / scale;
+            const y = -(e.clientY - rect.top - origin.y) / scale;
+
+            trajectories.push([{ x, y }]);
+        });
+
+        document.getElementById('updateBtn').onclick = updateSystem;
+
+        updateSystem();
+        loop();
+    </script>
+</body>
+
+</html>

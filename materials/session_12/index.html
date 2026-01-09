@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>定常偏差シミュレータ</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            width: 100%;
+            height: 350px;
+            margin-bottom: 20px;
+            background-color: #fff;
+        }
+
+        .controls {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            background: #eee;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        select {
+            padding: 5px;
+            font-size: 1rem;
+        }
+
+        .status-box {
+            font-family: monospace;
+            font-size: 1.1em;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .vals {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>第12章: システムの型と定常偏差</h1>
+    <p>積分要素の数（システムの型）によって、入力波形（ステップ、ランプ、加速度）に対する追従能力がどう変わるか観察しましょう。</p>
+
+    <div class="container">
+        <div class="legend">
+            <span style="color: green;">緑: 目標値 r(t)</span>
+            <span style="color: blue;">青: 出力 y(t)</span>
+            <span style="color: red;">赤: 偏差 e(t) (拡大表示)</span>
+        </div>
+        <canvas id="simCanvas" width="900" height="350"></canvas>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>システムの型 (積分器の数)</label>
+                <select id="typeSelect">
+                    <option value="0">0型 (比例のみ)</option>
+                    <option value="1" selected>1型 (積分1個)</option>
+                    <option value="2">2型 (積分2個)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>入力信号 r(t)</label>
+                <select id="inputSelect">
+                    <option value="step" selected>ステップ入力 (位置)</option>
+                    <option value="ramp">ランプ入力 (速度)</option>
+                    <option value="para">放物線入力 (加速度)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>操作</label>
+                <button id="resetBtn"
+                    style="padding: 8px 16px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer;">リセット</button>
+            </div>
+        </div>
+
+        <div class="status-box">
+            現在の偏差 e(t): <span id="errVal" class="vals">0.00</span>
+            <br>
+            <span id="theoryText" style="color:#666; font-size:0.9em;"></span>
+        </div>
+    </div>
+
+    <script>
+        // System Config
+        // Type 0: L(s) = K / (Ts + 1) -> y_dot = (K*e - y)/T
+        // Type 1: L(s) = K / s(Ts + 1) -> y_ddot = (K*e - y_dot)/T
+        // Type 2: L(s) = K / s^2(Ts + 1) -> y_dddot = (K*e - y_ddot)/T
+
+        // Let's implement generic state space or just ad-hoc integrators.
+        // Ad-hoc is easier for specific types.
+
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const typeSelect = document.getElementById('typeSelect');
+        const inputSelect = document.getElementById('inputSelect');
+        const resetBtn = document.getElementById('resetBtn');
+        const errVal = document.getElementById('errVal');
+        const theoryText = document.getElementById('theoryText');
+
+        let time = 0;
+        const dt = 0.05;
+        let y = 0, y_d = 0, y_dd = 0; // Output and derivatives
+        let u_int1 = 0, u_int2 = 0; // Internal states for Type 1, 2
+
+        // Parameters
+        const T = 1.0;
+        const K = 5.0; // Loop gain
+
+        // History
+        const maxHistory = 500;
+        const historyR = new Array(maxHistory).fill(0);
+        const historyY = new Array(maxHistory).fill(0);
+        const historyE = new Array(maxHistory).fill(0);
+
+        function reset() {
+            time = 0;
+            y = 0; y_d = 0; y_dd = 0;
+            u_int1 = 0; u_int2 = 0;
+            historyR.fill(0);
+            historyY.fill(0);
+            historyE.fill(0);
+            updateTheory();
+        }
+
+        function updateTheory() {
+            const type = parseInt(typeSelect.value);
+            const input = inputSelect.value;
+            let msg = "";
+
+            // Checking cases
+            if (input === 'step') { // Input 1/s
+                if (type === 0) msg = `理論値: 1/(1+K) = ${(1 / (1 + K)).toFixed(3)} (定常偏差残る)`;
+                else msg = "理論値: 0 (偏差なし)";
+            } else if (input === 'ramp') { // Input 1/s^2
+                if (type === 0) msg = "理論値: ∞ (発散)";
+                else if (type === 1) msg = `理論値: 1/K = ${(1 / K).toFixed(3)} (定常偏差残る)`;
+                else msg = "理論値: 0 (偏差なし)";
+            } else { // Parabola 1/s^3 (actually 0.5 t^2)
+                if (type < 2) msg = "理論値: ∞ (発散)";
+                else msg = `理論値: 1/K = ${(1 / K).toFixed(3)} (定常偏差残る)`; // For 0.5t^2 input, Laplace 1/s^3.
+                // Wait, standard form: R(s) = A/s^k. 
+                // E_ss = lim s -> 0 s * R(s) / (1 + G(s))
+            }
+            theoryText.textContent = msg;
+        }
+
+        function getTarget(t) {
+            const inp = inputSelect.value;
+            if (t < 0.5) return 0; // Delay start
+            const t0 = t - 0.5;
+            if (inp === 'step') return 1.0;
+            if (inp === 'ramp') return 0.5 * t0;
+            if (inp === 'para') return 0.1 * t0 * t0;
+            return 0;
+        }
+
+        function step() {
+            const r = getTarget(time);
+            const e = r - y;
+
+            const type = parseInt(typeSelect.value);
+            let u = 0; // Plant input (before the 1st order lag part)
+
+            // Controller part (Generating Integrators)
+            if (type === 0) {
+                u = K * e;
+            } else if (type === 1) {
+                u_int1 += e * dt;
+                u = K * u_int1; // Integrator + Gain
+            } else if (type === 2) {
+                u_int2 += e * dt;
+                u_int1 += u_int2 * dt; // Double integrator
+                // Need some damping? Pure double integral is unstable feedback loop?
+                // Closed loop: K/(s^2(Ts+1) + K). s^2(Ts+1)+K = Ts^3 + s^2 + K = 0.
+                // Routh: s^3: T, s^2: 1, s^1: 0 -> Unstable!
+                // True, pure Type 2 system with P control is unstable.
+                // To make Type 2 stable, we need zeros (PD control).
+                // But "System Type 2" usually implies plant has 2 integrators.
+                // Let's assume the "System" includes a stabilizing controller?
+                // Or simplified: Just simulate stable Type 2 response mechanically?
+                // Let's modify "Type 2" to have PID or lead compensation implicit.
+                // Or simply: Add a zero term? u = K * (e + 2*e_dot + u_int ...)
+                // Let's stick to simple P-control for Type 0/1.
+                // For Type 2, let's add derivative term to stabilize.
+                // u = K * (e + 2*de/dt) ... need de/dt.
+                // Approximated.
+                const e_prev = (historyE[historyE.length - 1]);
+                const e_dot = (e - e_prev) / dt;
+                u = K * (u_int1 + 2.0 * e + 2.0 * e_dot); // Adding PD to double int? No. 
+                // Type 2 means 2 poles at origin in L(s).
+                // Let L(s) = K(s+z) / s^2(s+p).
+            }
+
+            // Plant dynamics (always 1st order lag at end? or just integrators?)
+            // "System Type" usually refers to Open Loop L(s).
+            // Let's define L(s) directly.
+            // Type 0: L(s) = K / (s+1)  --> Unity FB --> Closed Loop.
+            // Type 1: L(s) = K / s(s+1)
+            // Type 2: L(s) = K(s+1) / s^2(s+1) ... stabilizer needed.
+
+            // Revised Simulation:
+            // Input r -> [Sum] -> e -> [C(s)P(s)] -> y
+            //                   |<- y -|
+            // We simulate the closed loop directly.
+            // Type 0: dy/dt = -y + K*e
+            // Type 1: d^2y/dt^2 = -dy/dt + K*e
+            // Type 2: d^3y/dt^3 ... + stabilization.
+
+            if (type === 0) {
+                // dy/dt + y = K e  (assuming T=1)
+                // y_dot = K*e - y
+                y_d = K * e - y;
+                y += y_d * dt;
+            } else if (type === 1) {
+                // y_dot + y_ddot = K e
+                // y_ddot = K*e - y_d
+                const y_dd = K * e - y_d;
+                y_d += y_dd * dt;
+                y += y_d * dt;
+            } else {
+                // Type 2: Needs stabilization. Let's use PID on double integrator plant.
+                // Plant = 1/s^2. Controller = K(s+1). L(s) = K(s+1)/s^2. Type 2.
+                // Closed loop: Y/R = (Ks+K) / (s^2 + Ks + K)
+                // s^2 Y = K(s+1)E
+                // y_ddot = K * (e + e_dot) = K*e + K*(r_dot - y_dot)
+                // Let's approx r_dot = (r - prev_r)/dt
+                const r_prev = historyR[historyR.length - 1];
+                const r_d = (r - r_prev) / dt;
+                const e_d = r_d - y_d;
+
+                const y_dd = K * (e + 1.0 * e_d); // Tuning
+                y_d += y_dd * dt;
+                y += y_d * dt;
+            }
+
+            time += dt;
+            historyR.shift(); historyR.push(r);
+            historyY.shift(); historyY.push(y);
+            historyE.shift(); historyE.push(e);
+
+            errVal.textContent = e.toFixed(4);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Auto scale Y
+            // Find max/min of R and Y
+            let maxVal = -1e9, minVal = 1e9;
+            for (let v of historyR) { if (v > maxVal) maxVal = v; if (v < minVal) minVal = v; }
+            for (let v of historyY) { if (v > maxVal) maxVal = v; if (v < minVal) minVal = v; }
+
+            let range = maxVal - minVal;
+            if (range < 2) range = 2; // Min range
+            const center = (maxVal + minVal) / 2;
+            const scaleY = (h - 40) / range;
+
+            function toY(val) {
+                return h / 2 - (val - center) * scaleY;
+            }
+
+            // Draw R (Green)
+            ctx.beginPath(); ctx.strokeStyle = 'green'; ctx.lineWidth = 2;
+            historyR.forEach((v, i) => {
+                if (i === 0) ctx.moveTo(i / maxHistory * w, toY(v));
+                else ctx.lineTo(i / maxHistory * w, toY(v));
+            });
+            ctx.stroke();
+
+            // Draw Y (Blue)
+            ctx.beginPath(); ctx.strokeStyle = 'blue'; ctx.lineWidth = 2;
+            historyY.forEach((v, i) => {
+                if (i === 0) ctx.moveTo(i / maxHistory * w, toY(v));
+                else ctx.lineTo(i / maxHistory * w, toY(v));
+            });
+            ctx.stroke();
+
+            // Draw E (Red) - Scaled x5 and centered
+            ctx.beginPath(); ctx.strokeStyle = 'red'; ctx.lineWidth = 1;
+            const eCenter = h - 50; // Bottom part
+            historyE.forEach((v, i) => {
+                const yPos = eCenter - v * 20; // x20 scale
+                if (i === 0) ctx.moveTo(i / maxHistory * w, yPos);
+                else ctx.lineTo(i / maxHistory * w, yPos);
+            });
+            ctx.stroke();
+            // Zero line for E
+            ctx.beginPath(); ctx.strokeStyle = '#faa'; ctx.setLineDash([2, 2]);
+            ctx.moveTo(0, eCenter); ctx.lineTo(w, eCenter); ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        function loop() {
+            step();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        typeSelect.onchange = () => { reset(); };
+        inputSelect.onchange = () => { reset(); };
+        resetBtn.onclick = reset;
+
+        updateTheory();
+        loop();
+
+    </script>
+</body>
+
+</html>

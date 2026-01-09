@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>たたみ込み積分 (Convolution) デモ</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            width: 100%;
+            height: 400px;
+            margin-bottom: 20px;
+            background-color: #fff;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        input[type="range"] {
+            vertical-align: middle;
+            width: 200px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        .explanation {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>第3章: たたみ込み積分 (Convolution)</h1>
+    <p>入力信号 $u(\tau)$ と、反転・シフトしたインパルス応答 $g(t-\tau)$ の積を積分することで、出力 $y(t)$ が得られる様子を可視化します。</p>
+
+    <div class="container">
+        <canvas id="convCanvas" width="900" height="400"></canvas>
+
+        <div class="controls">
+            <label>時間 t: <input type="range" id="timeSlider" min="-2" max="10" step="0.05" value="-1"></label>
+            <span id="timeVal" style="font-family: monospace; width: 50px;">-1.00</span>
+            <button id="playBtn">再生 / 停止</button>
+        </div>
+
+        <div class="explanation">
+            <p><strong>グラフの見方:</strong></p>
+            <ul style="list-style-type: none; padding-left: 0;">
+                <li><span style="color: blue; font-weight: bold;">青線:</span> 入力信号 $u(\tau)$ (ここでは単位ステップ入力)</li>
+                <li><span style="color: red; font-weight: bold;">赤線:</span> インパルス応答 $g(t-\tau)$ (右へ移動していきます)</li>
+                <li><span style="color: purple; font-weight: bold;">紫の塗りつぶし:</span> 2つの信号の積 (重なり部分)。この面積が $y(t)$ です。
+                </li>
+                <li><span style="color: green; font-weight: bold;">緑線 (下段):</span> 積分結果としての出力 $y(t)$</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('convCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('timeSlider');
+        const timeVal = document.getElementById('timeVal');
+        const playBtn = document.getElementById('playBtn');
+
+        let t = parseFloat(slider.value);
+        let isPlaying = false;
+        let animId;
+
+        // Signal definitions
+        function u(tau) {
+            // Unit step starting at 0
+            return (tau >= 0) ? 1.0 : 0.0;
+        }
+
+        function g(tau) {
+            // Simple exponential decay: e^(-tau) for tau >= 0
+            return (tau >= 0) ? Math.exp(-tau) : 0.0;
+        }
+
+        function draw() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const h2 = height / 2; // Split screen
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Coordinate settings
+            const tauMin = -2;
+            const tauMax = 10;
+            const tauRange = tauMax - tauMin;
+            const scaleX = width / tauRange;
+            const scaleY = h2 / 2.5; // Vertical scale
+            const originY1 = h2 - 30; // X-axis position for top graph
+            const originY2 = height - 30; // X-axis position for bottom graph
+
+            function toX(tau) { return (tau - tauMin) * scaleX; }
+
+            // --- Top Graph: u(tau) and g(t - tau) ---
+
+            // Draw Axes
+            ctx.beginPath(); ctx.moveTo(0, originY1); ctx.lineTo(width, originY1);
+            ctx.strokeStyle = '#999'; ctx.stroke();
+            ctx.fillStyle = '#000'; ctx.fillText("τ (タウ)", width - 40, originY1 - 5);
+
+            // 1. Draw u(tau) - Input Signal (Static)
+            ctx.beginPath();
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 2;
+            ctx.moveTo(toX(tauMin), originY1);
+            for (let tau = tauMin; tau <= tauMax; tau += 0.05) {
+                const val = u(tau);
+                ctx.lineTo(toX(tau), originY1 - val * scaleY);
+            }
+            ctx.stroke();
+
+            // 2. Draw g(t - tau) - Moving Impulse Response
+            ctx.beginPath();
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            // Scan tau
+            let start = true;
+            for (let tau = tauMin; tau <= tauMax; tau += 0.05) {
+                const val = g(t - tau); // Flipped and Shifted
+                if (start) { ctx.moveTo(toX(tau), originY1 - val * scaleY); start = false; }
+                else ctx.lineTo(toX(tau), originY1 - val * scaleY);
+            }
+            ctx.stroke();
+
+            // 3. Draw Product (Area)
+            ctx.fillStyle = 'rgba(128, 0, 128, 0.3)'; // Purple transparent
+            ctx.beginPath();
+            ctx.moveTo(toX(tauMin), originY1);
+            for (let tau = tauMin; tau <= tauMax; tau += 0.05) {
+                const prod = u(tau) * g(t - tau);
+                ctx.lineTo(toX(tau), originY1 - prod * scaleY);
+            }
+            ctx.lineTo(toX(tauMax), originY1);
+            ctx.fill();
+
+            // --- Bottom Graph: y(t) ---
+
+            // Draw Axes
+            ctx.beginPath(); ctx.moveTo(0, originY2); ctx.lineTo(width, originY2);
+            ctx.strokeStyle = '#999'; ctx.stroke();
+            ctx.fillStyle = '#000'; ctx.fillText("t", width - 20, originY2 - 5);
+
+            // 4. Calculate y(current_t)
+            // For step input u(t) and system g(t)=e^-t, output is step response: 1 - e^-t
+            let currentY = 0;
+            if (t >= 0) {
+                // Analytical solution for this specific case
+                currentY = 1 - Math.exp(-t);
+            }
+
+            // Draw full y(t) curve up to current t
+            ctx.beginPath();
+            ctx.strokeStyle = 'green';
+            ctx.lineWidth = 3;
+            ctx.moveTo(toX(tauMin), originY2);
+            for (let simT = tauMin; simT <= t; simT += 0.05) {
+                let val = 0;
+                if (simT >= 0) val = 1 - Math.exp(-simT);
+                ctx.lineTo(toX(simT), originY2 - val * scaleY);
+            }
+            ctx.stroke();
+
+            // Draw Current Marker
+            const cx = toX(t);
+            const cy = originY2 - currentY * scaleY;
+            ctx.fillStyle = 'green';
+            ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill();
+
+            // Dashed line connecting top and bottom
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#aaa';
+            ctx.moveTo(cx, originY1);
+            ctx.lineTo(cx, originY2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Interaction
+        slider.addEventListener('input', () => {
+            t = parseFloat(slider.value);
+            timeVal.textContent = t.toFixed(2);
+            draw();
+        });
+
+        playBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                cancelAnimationFrame(animId);
+                isPlaying = false;
+                playBtn.textContent = "再生";
+            } else {
+                isPlaying = true;
+                playBtn.textContent = "停止";
+                loop();
+            }
+        });
+
+        function loop() {
+            if (!isPlaying) return;
+
+            t += 0.05;
+            if (t > 10) {
+                t = -2; // Loop
+            }
+            slider.value = t;
+            timeVal.textContent = t.toFixed(2);
+            draw();
+            animId = requestAnimationFrame(loop);
+        }
+
+        draw();
+    </script>
+</body>
+
+</html>

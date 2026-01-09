@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>安定余裕（ゲイン余裕・位相余裕）の可視化</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            width: 100%;
+            margin-bottom: 5px;
+            background-color: #fff;
+        }
+
+        .controls {
+            background: #eee;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .vals {
+            font-family: monospace;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #007bff;
+            margin-left: 10px;
+        }
+
+        .status {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .stable {
+            color: green;
+        }
+
+        .unstable {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>第10章: 安定余裕 (Gain/Phase Margin)</h1>
+    <p>開ループ伝達関数 $L(s) = \frac{K}{s(s+1)(s+2)}$ のボード線図です。<br>
+        ゲイン $K$ を変えて、安定限界（位相余裕=0, ゲイン余裕=0）がどこか探ってみましょう。</p>
+
+    <div class="container">
+        <div class="controls">
+            <label>比例ゲイン K: <input type="range" id="kSlider" min="0.1" max="10" step="0.1" value="1.0"
+                    style="width:300px;"></label>
+            <span id="kVal" class="vals">K = 1.0</span>
+            <div id="stabilityStatus" class="status stable">安定</div>
+            <div style="margin-top:5px; font-size:0.9em;">
+                ゲイン余裕 (GM): <span id="gmVal">-</span>, 位相余裕 (PM): <span id="pmVal">-</span>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div>
+                <h3>ゲイン線図 [dB]</h3>
+                <canvas id="gainCanvas" width="900" height="250"></canvas>
+            </div>
+            <div>
+                <h3>位相線図 [deg]</h3>
+                <canvas id="phaseCanvas" width="900" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gainCanvas = document.getElementById('gainCanvas');
+        const phaseCanvas = document.getElementById('phaseCanvas');
+        const gCtx = gainCanvas.getContext('2d');
+        const pCtx = phaseCanvas.getContext('2d');
+        const kSlider = document.getElementById('kSlider');
+        const kVal = document.getElementById('kVal');
+        const gmSpan = document.getElementById('gmVal');
+        const pmSpan = document.getElementById('pmVal');
+        const statusDiv = document.getElementById('stabilityStatus');
+
+        let K = 1.0;
+
+        // System: L(s) = K / (s * (s+1) * (s+2))
+        // = K / (s * (s^2 + 3s + 2)) = K / (s^3 + 3s^2 + 2s)
+        // jw -> (jw)^3 + 3(jw)^2 + 2(jw) = -j w^3 - 3 w^2 + 2 j w
+        // = -3 w^2 + j (2w - w^3)
+        // Magnitude = K / sqrt( (-3w^2)^2 + (2w - w^3)^2 )
+        // Phase = - atan2( 2w - w^3, -3w^2 )  (Careful with quadrants)
+        // Actually: Phase = -90 - atan(w) - atan(w/2)
+
+        function getResponse(w) {
+            // L(jw) = K / (jw * (jw+1) * (jw+2))
+            // Mag
+            const den2 = (w * w) * (w * w + 1) * (w * w + 4);
+            const mag = K / Math.sqrt(den2);
+            const magdB = 20 * Math.log10(mag);
+
+            // Phase
+            // -90 - atan(w) - atan(w/2)
+            let phRad = -Math.PI / 2 - Math.atan(w) - Math.atan(w / 2);
+            // Convert to deg
+            let phDeg = phRad * 180 / Math.PI;
+
+            // Normalize to -180 range roughly for visualization? 
+            // Usually phase goes from -90 to -270 for this system (Order 3, type 1)
+
+            return { magdB, phDeg, w };
+        }
+
+        function draw() {
+            gCtx.clearRect(0, 0, gainCanvas.width, gainCanvas.height);
+            pCtx.clearRect(0, 0, phaseCanvas.width, phaseCanvas.height);
+
+            const wMin = 0.1;
+            const wMax = 10;
+            const logMin = Math.log10(wMin);
+            const logMax = Math.log10(wMax);
+            const wScale = gainCanvas.width / (logMax - logMin);
+
+            function getX(w) {
+                return (Math.log10(w) - logMin) * wScale;
+            }
+
+            // --- Calc Data Points ---
+            const data = [];
+            for (let x = 0; x < gainCanvas.width; x += 2) {
+                const logW = logMin + x / wScale;
+                const w = Math.pow(10, logW);
+                data.push(getResponse(w));
+            }
+
+            // --- Find Margins ---
+            // Phase Crossover: Phase = -180
+            // Gain Crossover: MagdB = 0
+
+            let w_pc = null, mag_pc = null;
+            let w_gc = null, ph_gc = null;
+
+            // Linear search for intersections
+            for (let i = 0; i < data.length - 1; i++) {
+                const p1 = data[i];
+                const p2 = data[i + 1];
+
+                // Check -180 crossing (decreasing phase)
+                if (p1.phDeg > -180 && p2.phDeg <= -180) {
+                    // Interpolate
+                    const r = (-180 - p1.phDeg) / (p2.phDeg - p1.phDeg);
+                    w_pc = p1.w + r * (p2.w - p1.w);
+                    mag_pc = p1.magdB + r * (p2.magdB - p1.magdB);
+                }
+
+                // Check 0dB crossing (decreasing gain)
+                if (p1.magdB > 0 && p2.magdB <= 0) {
+                    const r = (0 - p1.magdB) / (p2.magdB - p1.magdB);
+                    w_gc = p1.w + r * (p2.w - p1.w);
+                    ph_gc = p1.phDeg + r * (p2.phDeg - p1.phDeg);
+                }
+            }
+
+            // Calc Margins
+            // GM = - mag_pc (if mag_pc < 0, GM > 0 => Stable)
+            // PM = 180 + ph_gc (if ph_gc > -180, PM > 0 => Stable)
+
+            let GM = (mag_pc !== null) ? -mag_pc : "inf";
+            let PM = (ph_gc !== null) ? (180 + ph_gc) : "inf";
+
+            // Update Text
+            gmSpan.textContent = (typeof GM === "number") ? GM.toFixed(2) + " dB" : GM;
+            pmSpan.textContent = (typeof PM === "number") ? PM.toFixed(2) + " deg" : PM;
+
+            const isStable = (typeof GM === "number" && GM > 0) || (GM === "inf");
+            // Note: For this system, we know it becomes unstable at high gain.
+            // If GM < 0 it is unstable.
+
+            statusDiv.textContent = (GM > 0) ? "安定 (Stable)" : "不安定 (Unstable)";
+            statusDiv.className = "status " + ((GM > 0) ? "stable" : "unstable");
+
+
+            // --- Draw Charts ---
+
+            // DB Axis (Gain)
+            const gZeroY = 100; // Pixel for 0dB
+            const gScale = 4; // Pixels per dB
+
+            gCtx.beginPath(); gCtx.moveTo(0, gZeroY); gCtx.lineTo(gainCanvas.width, gZeroY); gCtx.strokeStyle = '#aaa'; gCtx.stroke(); // 0dB line
+            gCtx.fillStyle = '#666'; gCtx.fillText("0 dB", 5, gZeroY - 5);
+
+            gCtx.beginPath(); gCtx.strokeStyle = 'blue'; gCtx.lineWidth = 2;
+            data.forEach((p, i) => {
+                const x = getX(p.w);
+                const y = gZeroY - p.magdB * gScale;
+                if (i === 0) gCtx.moveTo(x, y); else gCtx.lineTo(x, y);
+            });
+            gCtx.stroke();
+
+            // Phase Axis
+            const pZeroY = 50; // Pixel for -90
+            const pScale = 1.5; // Pixels per deg
+            // Map -180 to ...
+            function phaseToY(deg) {
+                // -90 -> 50px
+                // -180 -> 50 + (90)*scale
+                return pZeroY + (-90 - deg) * -pScale; // Wait
+                // Let's settle: -180 deg is Key line.
+                // Center -180 at height/2? 
+                // Height 250. Center 125.
+                // Let 125px = -180 deg.
+            }
+            const p180Y = 125;
+
+            pCtx.beginPath(); pCtx.moveTo(0, p180Y); pCtx.lineTo(phaseCanvas.width, p180Y); pCtx.strokeStyle = '#aaa'; pCtx.stroke(); // -180 line
+            pCtx.fillStyle = '#666'; pCtx.fillText("-180 deg", 5, p180Y - 5);
+
+            pCtx.beginPath(); pCtx.strokeStyle = 'red'; pCtx.lineWidth = 2;
+            data.forEach((p, i) => {
+                const x = getX(p.w);
+                // p.hDeg is like -90 to -270
+                // Center -180
+                const y = p180Y - (p.phDeg - (-180)) * pScale;
+                if (i === 0) pCtx.moveTo(x, y); else pCtx.lineTo(x, y);
+            });
+            pCtx.stroke();
+
+            // --- Draw Margins ---
+            if (w_pc !== null) {
+                const x = getX(w_pc);
+                const y = gZeroY - mag_pc * gScale;
+                const y0 = gZeroY;
+
+                gCtx.beginPath(); gCtx.moveTo(x, y0); gCtx.lineTo(x, y); gCtx.strokeStyle = 'green'; gCtx.lineWidth = 3; gCtx.stroke();
+                gCtx.fillStyle = 'green'; gCtx.fillText("GM", x + 5, (y + y0) / 2);
+
+                // Mark on phase chart
+                const py = p180Y;
+                pCtx.beginPath(); pCtx.arc(x, py, 4, 0, Math.PI * 2); pCtx.fillStyle = 'green'; pCtx.fill();
+            }
+
+            if (w_gc !== null) {
+                const x = getX(w_gc);
+                // Draw on Phase chart
+                const py = p180Y - (ph_gc - (-180)) * pScale;
+                const py0 = p180Y;
+                pCtx.beginPath(); pCtx.moveTo(x, py0); pCtx.lineTo(x, py); pCtx.strokeStyle = 'purple'; pCtx.lineWidth = 3; pCtx.stroke();
+                pCtx.fillStyle = 'purple'; pCtx.fillText("PM", x + 5, (py + py0) / 2);
+
+                // Mark on gain chart
+                const gy = gZeroY;
+                gCtx.beginPath(); gCtx.arc(x, gy, 4, 0, Math.PI * 2); gCtx.fillStyle = 'purple'; gCtx.fill();
+            }
+        }
+
+        kSlider.addEventListener('input', () => {
+            K = parseFloat(kSlider.value);
+            kVal.textContent = "K = " + K.toFixed(1);
+            draw();
+        });
+
+        draw();
+    </script>
+</body>
+
+</html>

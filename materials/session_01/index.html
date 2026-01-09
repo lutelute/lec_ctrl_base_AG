@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>フィードバック制御 vs オープンループ制御</title>
+    <style>
+        body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; background-color: #f9f9f9; color: #333; }
+        h1 { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        canvas { border: 1px solid #ddd; width: 100%; height: 350px; margin-bottom: 20px; border-radius: 4px; background-color: #fbfbfb; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .control-group { border: 1px solid #eee; padding: 20px; border-radius: 8px; background-color: #fff; transition: all 0.2s; }
+        .control-group:hover, .control-group.active { border-color: #007bff; box-shadow: 0 0 10px rgba(0,123,255,0.1); }
+        .control-group h3 { margin-top: 0; color: #555; }
+        button { padding: 10px 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; transition: background 0.2s; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        input[type="range"] { width: 100%; margin: 10px 0; }
+        .status-bar { padding: 10px; background-color: #e9ecef; border-radius: 6px; margin-bottom: 20px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .value-display { font-family: monospace; font-weight: bold; color: #007bff; }
+    </style>
+</head>
+<body>
+    <h1>第1章: フィードバック制御体験シミュレータ</h1>
+    <p>このツールでは、手動による制御（オープンループ）と、自動による制御（フィードバック）の違いを直感的に体験できます。青い箱を赤いライン（目標位置）に移動させて停止させてみましょう。</p>
+
+    <div class="container">
+        <canvas id="simCanvas" width="900" height="350"></canvas>
+        
+        <div class="status-bar">
+            <span>現在のモード: <span id="statusText" style="color: #007bff;">オープンループ（手動）</span></span>
+            <button id="resetBtn">リセット (位置・速度を0にする)</button>
+        </div>
+
+        <div class="controls">
+            <div class="control-group" id="groupManual">
+                <h3>1. オープンループ制御 (手動)</h3>
+                <p>スライダーを動かして「力」を加えます。目標位置でピタリと止めるのは難しいことを体験してください。</p>
+                <label>入力 (力): <span id="manualVal" class="value-display">0</span></label>
+                <input type="range" id="manualInput" min="-20" max="20" value="0" step="0.5">
+            </div>
+
+            <div class="control-group" id="groupAuto">
+                <h3>2. フィードバック制御 (P制御)</h3>
+                <p>目標位置とのズレ（偏差）に応じて自動的に力を加えます。ゲイン(Kp)を調整してみましょう。</p>
+                <label>比例ゲイン (Kp): <span id="kpVal" class="value-display">0.5</span></label>
+                <input type="range" id="kpInput" min="0" max="5" value="0.5" step="0.1">
+                <div style="margin-top: 15px; text-align: center;">
+                    <button id="toggleAuto">自動制御を有効にする</button>
+                </div>
+            </div>
+        </div>
+        
+        <div style="font-size: 0.9em; color: #666; margin-top: 10px;">
+            <p>※ <strong>オープンループ制御</strong>: 結果（出力）を見ずに、予め決められた操作（ここではあなたの手動操作）を行う方式。外乱や誤差に弱い。<br>
+            ※ <strong>フィードバック制御</strong>: 結果（出力）を目標と比較し、その差に応じて操作量を調整する方式。誤差を修正できる。</p>
+        </div>
+    </div>
+
+    <script>
+        // Simulation state
+        let pos = 100; // Start slightly left
+        let vel = 0;
+        const target = 450;
+        let lastTime = performance.now();
+        let isAuto = false;
+        
+        // Physics constants
+        const mass = 2.0;
+        const friction = 2.0; // Viscous damping
+        
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const manualInput = document.getElementById('manualInput');
+        const manualVal = document.getElementById('manualVal');
+        const kpInput = document.getElementById('kpInput');
+        const kpVal = document.getElementById('kpVal');
+        const toggleAutoBtn = document.getElementById('toggleAuto');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusText = document.getElementById('statusText');
+        const groupManual = document.getElementById('groupManual');
+        const groupAuto = document.getElementById('groupAuto');
+
+        // Update UI logic
+        function updateUI() {
+            if (isAuto) {
+                statusText.textContent = "フィードバック制御（自動）";
+                toggleAutoBtn.textContent = "手動モードに戻る (自動OFF)";
+                toggleAutoBtn.style.backgroundColor = "#dc3545"; // Red for stop
+                manualInput.disabled = true;
+                groupManual.style.opacity = "0.5";
+                groupManual.classList.remove('active');
+                groupAuto.classList.add('active');
+            } else {
+                statusText.textContent = "オープンループ制御（手動）";
+                toggleAutoBtn.textContent = "自動制御を有効にする";
+                toggleAutoBtn.style.backgroundColor = "#007bff";
+                manualInput.disabled = false;
+                groupManual.style.opacity = "1";
+                groupManual.classList.add('active');
+                groupAuto.classList.remove('active');
+            }
+        }
+
+        // Event Listeners
+        manualInput.addEventListener('input', (e) => manualVal.textContent = e.target.value);
+        kpInput.addEventListener('input', (e) => kpVal.textContent = e.target.value);
+        
+        toggleAutoBtn.addEventListener('click', () => {
+            isAuto = !isAuto;
+            // Reset manual input when switching back to manual to avoid sudden jumps
+            if (!isAuto) {
+                manualInput.value = 0;
+                manualVal.textContent = 0;
+            }
+            updateUI();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            pos = 100;
+            vel = 0;
+            manualInput.value = 0;
+            manualVal.textContent = 0;
+            // Mode stays same
+        });
+
+        // Loop
+        function loop(timestamp) {
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1); // Cap dt
+            lastTime = timestamp;
+
+            let force = 0;
+            
+            if (isAuto) {
+                // P Control: u = Kp * (r - y)
+                const error = target - pos;
+                const Kp = parseFloat(kpInput.value);
+                force = Kp * error;
+                // Force limit for realism
+                force = Math.max(-1000, Math.min(1000, force));
+            } else {
+                force = parseFloat(manualInput.value) * 50; // Scale up for feel
+            }
+
+            // Dynamics: F - cv = ma  =>  a = (F - cv)/m
+            const acc = (force - friction * vel) / mass;
+            
+            vel += acc * dt;
+            pos += vel * dt;
+
+            // Boundaries (Elastic collision)
+            if (pos < 25) { pos = 25; vel = -vel * 0.5; }
+            if (pos > canvas.width - 25) { pos = canvas.width - 25; vel = -vel * 0.5; }
+
+            // Drawing
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Target Line
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(target, 50);
+            ctx.lineTo(target, canvas.height - 50);
+            ctx.strokeStyle = '#dc3545'; // Danger red
+            ctx.lineWidth = 4;
+            ctx.setLineDash([10, 5]);
+            ctx.stroke();
+            ctx.fillStyle = '#dc3545';
+            ctx.font = "bold 16px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("目標位置 (Target)", target, 40);
+            ctx.restore();
+
+            // Draw Ground
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height/2 + 55);
+            ctx.lineTo(canvas.width, canvas.height/2 + 55);
+            ctx.strokeStyle = '#aaa';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw Block
+            ctx.fillStyle = isAuto ? '#28a745' : '#007bff'; // Green if auto, Blue if manual
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(pos - 45, canvas.height/2 + 55, 100, 10);
+            
+            // Main body
+            ctx.fillStyle = isAuto ? '#28a745' : '#007bff';
+            ctx.beginPath();
+            ctx.roundRect(pos - 50, canvas.height/2 - 50, 100, 100, 8);
+            ctx.fill();
+            
+            // Text on Block
+            ctx.fillStyle = 'white';
+            ctx.font = "14px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(isAuto ? "自動制御中" : "手動操作中", pos, canvas.height/2);
+            ctx.fillText(`Pos: ${Math.round(pos)}`, pos, canvas.height/2 + 20);
+
+            // Force Arrow
+            if (Math.abs(force) > 1) {
+                ctx.save();
+                ctx.translate(pos, canvas.height/2 - 60);
+                const len = Math.min(Math.abs(force)/5, 100);
+                const dir = Math.sign(force);
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(len * dir, 0);
+                ctx.strokeStyle = '#ffc107'; // Warning yellow
+                ctx.lineWidth = 6;
+                ctx.stroke();
+                
+                // Arrowhead
+                ctx.beginPath();
+                ctx.moveTo(len * dir, 0);
+                ctx.lineTo((len * dir) - (10 * dir), -10);
+                ctx.lineTo((len * dir) - (10 * dir), 10);
+                ctx.closePath();
+                ctx.fillStyle = '#ffc107';
+                ctx.fill();
+                ctx.restore();
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        updateUI(); // Init UI
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>

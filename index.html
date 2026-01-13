@@ -73,13 +73,16 @@
             padding: 25px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
-            text-decoration: none;
-            color: inherit;
-            display: block;
         }
         .session-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        }
+        .session-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            margin-bottom: 12px;
         }
         .session-number {
             display: inline-block;
@@ -91,21 +94,49 @@
             text-align: center;
             line-height: 40px;
             font-weight: bold;
-            margin-bottom: 12px;
+            flex-shrink: 0;
         }
         .session-title {
             font-size: 1.1em;
             color: #333;
             font-weight: 600;
-            margin-bottom: 8px;
         }
         .session-desc {
             font-size: 0.9em;
             color: #666;
+            margin-bottom: 15px;
+        }
+        .session-links {
+            display: flex;
+            gap: 10px;
+        }
+        .session-links a {
+            flex: 1;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.85em;
+            font-weight: 500;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .link-simulator {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .link-simulator:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+        .link-note {
+            background: #f0f0f0;
+            color: #555;
+        }
+        .link-note:hover {
+            background: #e0e0e0;
         }
         .midterm {
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
         }
         .midterm .session-number {
             background: rgba(255,255,255,0.3);
@@ -114,9 +145,15 @@
         .midterm .session-desc {
             color: white;
         }
+        .midterm .link-simulator {
+            background: rgba(255,255,255,0.25);
+        }
+        .midterm .link-note {
+            background: rgba(255,255,255,0.9);
+            color: #764ba2;
+        }
         .final {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
         }
         .final .session-number {
             background: rgba(255,255,255,0.3);
@@ -124,6 +161,13 @@
         .final .session-title,
         .final .session-desc {
             color: white;
+        }
+        .final .link-simulator {
+            background: rgba(255,255,255,0.25);
+        }
+        .final .link-note {
+            background: rgba(255,255,255,0.9);
+            color: #0077b6;
         }
         footer {
             text-align: center;
@@ -162,81 +206,171 @@
         </div>
 
         <div class="sessions-grid">
-            <a href="materials/session_01/" class="session-card">
-                <span class="session-number">1</span>
-                <div class="session-title">制御工学の全体像</div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">1</span>
+                    <div class="session-title">制御工学の全体像</div>
+                </div>
                 <div class="session-desc">制御とは何か、フィードバック制御の基本構造</div>
-            </a>
-            <a href="materials/session_02/" class="session-card">
-                <span class="session-number">2</span>
-                <div class="session-title">複素数とラプラス変換</div>
+                <div class="session-links">
+                    <a href="materials/session_01/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_01/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">2</span>
+                    <div class="session-title">複素数とラプラス変換</div>
+                </div>
                 <div class="session-desc">複素数の表現と演算、ラプラス変換の性質</div>
-            </a>
-            <a href="materials/session_03/" class="session-card">
-                <span class="session-number">3</span>
-                <div class="session-title">LTIシステムとたたみ込み積分</div>
+                <div class="session-links">
+                    <a href="materials/session_02/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_02/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">3</span>
+                    <div class="session-title">LTIシステムとたたみ込み積分</div>
+                </div>
                 <div class="session-desc">線形時不変性、インパルス応答とたたみ込み</div>
-            </a>
-            <a href="materials/session_04/" class="session-card">
-                <span class="session-number">4</span>
-                <div class="session-title">伝達関数とブロック線図</div>
+                <div class="session-links">
+                    <a href="materials/session_03/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_03/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">4</span>
+                    <div class="session-title">伝達関数とブロック線図</div>
+                </div>
                 <div class="session-desc">伝達関数の定義と性質、極・零点</div>
-            </a>
-            <a href="materials/session_05/" class="session-card">
-                <span class="session-number">5</span>
-                <div class="session-title">周波数伝達関数と周波数応答</div>
+                <div class="session-links">
+                    <a href="materials/session_04/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_04/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">5</span>
+                    <div class="session-title">周波数伝達関数と周波数応答</div>
+                </div>
                 <div class="session-desc">正弦波応答、Bode線図・Nyquist線図</div>
-            </a>
-            <a href="materials/session_06/" class="session-card">
-                <span class="session-number">6</span>
-                <div class="session-title">状態空間表現</div>
+                <div class="session-links">
+                    <a href="materials/session_05/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_05/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">6</span>
+                    <div class="session-title">状態空間表現</div>
+                </div>
                 <div class="session-desc">状態方程式と出力方程式、状態遷移行列</div>
-            </a>
-            <a href="materials/session_07/" class="session-card midterm">
-                <span class="session-number">7</span>
-                <div class="session-title">中間試験対策・復習</div>
+                <div class="session-links">
+                    <a href="materials/session_06/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_06/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card midterm">
+                <div class="session-header">
+                    <span class="session-number">7</span>
+                    <div class="session-title">中間試験対策・復習</div>
+                </div>
                 <div class="session-desc">前半の総復習と演習問題</div>
-            </a>
-            <a href="materials/session_08/" class="session-card">
-                <span class="session-number">8</span>
-                <div class="session-title">フィードバック制御とフィードフォワード制御</div>
+                <div class="session-links">
+                    <a href="materials/session_07/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_07/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">8</span>
+                    <div class="session-title">フィードバック制御とフィードフォワード制御</div>
+                </div>
                 <div class="session-desc">制御の目的と分類、2自由度制御</div>
-            </a>
-            <a href="materials/session_09/" class="session-card">
-                <span class="session-number">9</span>
-                <div class="session-title">LTIシステムの安定性</div>
+                <div class="session-links">
+                    <a href="materials/session_08/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_08/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">9</span>
+                    <div class="session-title">LTIシステムの安定性</div>
+                </div>
                 <div class="session-desc">BIBO安定性、ラウス法による安定判別</div>
-            </a>
-            <a href="materials/session_10/" class="session-card">
-                <span class="session-number">10</span>
-                <div class="session-title">フィードバック制御系の安定性</div>
+                <div class="session-links">
+                    <a href="materials/session_09/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_09/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">10</span>
+                    <div class="session-title">フィードバック制御系の安定性</div>
+                </div>
                 <div class="session-desc">ナイキスト判別法、安定余裕</div>
-            </a>
-            <a href="materials/session_11/" class="session-card">
-                <span class="session-number">11</span>
-                <div class="session-title">制御系の過渡特性</div>
+                <div class="session-links">
+                    <a href="materials/session_10/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_10/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">11</span>
+                    <div class="session-title">制御系の過渡特性</div>
+                </div>
                 <div class="session-desc">ステップ応答、極の配置と応答速度</div>
-            </a>
-            <a href="materials/session_12/" class="session-card">
-                <span class="session-number">12</span>
-                <div class="session-title">制御系の定常特性</div>
+                <div class="session-links">
+                    <a href="materials/session_11/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_11/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">12</span>
+                    <div class="session-title">制御系の定常特性</div>
+                </div>
                 <div class="session-desc">定常偏差とその計算、内部モデル原理</div>
-            </a>
-            <a href="materials/session_13/" class="session-card">
-                <span class="session-number">13</span>
-                <div class="session-title">制御系の周波数特性・詳細</div>
+                <div class="session-links">
+                    <a href="materials/session_12/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_12/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">13</span>
+                    <div class="session-title">制御系の周波数特性・詳細</div>
+                </div>
                 <div class="session-desc">ゲイン余裕・位相余裕の評価</div>
-            </a>
-            <a href="materials/session_14/" class="session-card">
-                <span class="session-number">14</span>
-                <div class="session-title">制御系の設計法</div>
+                <div class="session-links">
+                    <a href="materials/session_13/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_13/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card">
+                <div class="session-header">
+                    <span class="session-number">14</span>
+                    <div class="session-title">制御系の設計法</div>
+                </div>
                 <div class="session-desc">PID制御、根軌跡法によるゲイン調整</div>
-            </a>
-            <a href="materials/session_15/" class="session-card final">
-                <span class="session-number">15</span>
-                <div class="session-title">期末試験対策・制御工学の展望</div>
+                <div class="session-links">
+                    <a href="materials/session_14/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_14/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
+            <div class="session-card final">
+                <div class="session-header">
+                    <span class="session-number">15</span>
+                    <div class="session-title">期末試験対策・制御工学の展望</div>
+                </div>
                 <div class="session-desc">総復習と現代制御の発展</div>
-            </a>
+                <div class="session-links">
+                    <a href="materials/session_15/" class="link-simulator">シミュレータ</a>
+                    <a href="materials/session_15/note.html" class="link-note">講義ノート</a>
+                </div>
+            </div>
         </div>
 
         <footer>

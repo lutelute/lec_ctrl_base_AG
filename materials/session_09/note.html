@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>講義ノート</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fafafa;
+            color: #333;
+            line-height: 1.8;
+        }
+        .nav {
+            margin-bottom: 30px;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+        }
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+        .nav a:hover { text-decoration: underline; }
+        #content {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        #content h1 { color: #667eea; border-bottom: 3px solid #667eea; padding-bottom: 10px; }
+        #content h2 { color: #764ba2; margin-top: 2em; border-left: 4px solid #764ba2; padding-left: 12px; }
+        #content h3 { color: #555; margin-top: 1.5em; }
+        #content code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+        #content pre { background: #2d2d2d; color: #f8f8f2; padding: 20px; border-radius: 8px; overflow-x: auto; }
+        #content pre code { background: none; color: inherit; }
+        #content blockquote { border-left: 4px solid #667eea; margin: 1.5em 0; padding: 10px 20px; background: #f8f9ff; }
+        #content table { border-collapse: collapse; width: 100%; margin: 1.5em 0; }
+        #content th, #content td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        #content th { background: #667eea; color: white; }
+        #content tr:nth-child(even) { background: #f9f9f9; }
+        #content hr { border: none; border-top: 2px solid #eee; margin: 2em 0; }
+        #content ul, #content ol { padding-left: 1.5em; }
+        #content li { margin: 0.5em 0; }
+        .katex-display { overflow-x: auto; overflow-y: hidden; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="../../">トップへ戻る</a>
+        <a href="index.html">シミュレータ</a>
+    </div>
+    <div id="content">読み込み中...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script>
+        fetch('note.md')
+            .then(r => r.text())
+            .then(md => {
+                // KaTeX: $$...$$ と $...$
+                md = md.replace(/\$\$([^$]+)\$\$/g, (_, tex) => {
+                    try { return '<div class="katex-display">' + katex.renderToString(tex.trim(), {displayMode: true}) + '</div>'; }
+                    catch(e) { return '$$' + tex + '$$'; }
+                });
+                md = md.replace(/\$([^$\n]+)\$/g, (_, tex) => {
+                    try { return katex.renderToString(tex.trim(), {displayMode: false}); }
+                    catch(e) { return '$' + tex + '$'; }
+                });
+                document.getElementById('content').innerHTML = marked.parse(md);
+            })
+            .catch(() => {
+                document.getElementById('content').innerHTML = '<p>講義ノートの読み込みに失敗しました。</p>';
+            });
+    </script>
+</body>
+</html>

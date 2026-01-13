@@ -16,23 +16,23 @@
 
 ## 講義内容（全15回）
 
-| 回 | 内容 | 教材リンク |
-|:--:|:-----|:-----------|
-| 1 | 制御工学の全体像 | [Session 01](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_01/) |
-| 2 | 複素数とラプラス変換 | [Session 02](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_02/) |
-| 3 | LTIシステムとたたみ込み積分 | [Session 03](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_03/) |
-| 4 | 伝達関数とブロック線図 | [Session 04](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_04/) |
-| 5 | 周波数伝達関数と周波数応答 | [Session 05](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_05/) |
-| 6 | 状態空間表現 | [Session 06](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_06/) |
-| 7 | 中間試験対策・復習 | [Session 07](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_07/) |
-| 8 | フィードバック制御とフィードフォワード制御 | [Session 08](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_08/) |
-| 9 | LTIシステムの安定性 | [Session 09](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_09/) |
-| 10 | フィードバック制御系の安定性 | [Session 10](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_10/) |
-| 11 | 制御系の過渡特性 | [Session 11](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_11/) |
-| 12 | 制御系の定常特性 | [Session 12](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_12/) |
-| 13 | 制御系の周波数特性・詳細 | [Session 13](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_13/) |
-| 14 | 制御系の設計法 | [Session 14](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_14/) |
-| 15 | 期末試験対策・制御工学の展望 | [Session 15](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_15/) |
+| 回 | 内容 | シミュレータ | 講義ノート |
+|:--:|:-----|:------------:|:----------:|
+| 1 | 制御工学の全体像 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_01/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_01/note.html) |
+| 2 | 複素数とラプラス変換 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_02/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_02/note.html) |
+| 3 | LTIシステムとたたみ込み積分 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_03/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_03/note.html) |
+| 4 | 伝達関数とブロック線図 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_04/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_04/note.html) |
+| 5 | 周波数伝達関数と周波数応答 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_05/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_05/note.html) |
+| 6 | 状態空間表現 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_06/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_06/note.html) |
+| 7 | 中間試験対策・復習 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_07/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_07/note.html) |
+| 8 | フィードバック制御とフィードフォワード制御 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_08/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_08/note.html) |
+| 9 | LTIシステムの安定性 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_09/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_09/note.html) |
+| 10 | フィードバック制御系の安定性 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_10/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_10/note.html) |
+| 11 | 制御系の過渡特性 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_11/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_11/note.html) |
+| 12 | 制御系の定常特性 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_12/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_12/note.html) |
+| 13 | 制御系の周波数特性・詳細 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_13/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_13/note.html) |
+| 14 | 制御系の設計法 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_14/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_14/note.html) |
+| 15 | 期末試験対策・制御工学の展望 | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_15/) | [開く](https://lutelute.github.io/lec_ctrl_base_AG/materials/session_15/note.html) |
 
 ## 到達目標
 

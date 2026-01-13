@@ -12,7 +12,8 @@
 
 ## 教材へのアクセス
 
-**GitHub Pages**: https://lutelute.github.io/lec_ctrl_base_AG/
+- **トップページ**: https://lutelute.github.io/lec_ctrl_base_AG/
+- **講義ノート一覧**: 上記トップページから各回の「講義ノート」をクリック
 
 ## 講義内容（全15回）
 

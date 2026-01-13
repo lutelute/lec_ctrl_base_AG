@@ -59,3 +59,7 @@
 ## 教科書
 
 - 「制御工学の基礎」（著）足立修一
+
+---
+
+本教材は [AntiGravity](https://antigravity.jp) で開発されました。

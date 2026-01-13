@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>制御理論基礎 - 福井大学</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        .info-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+        .info-card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .info-item {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .info-item strong {
+            color: #555;
+            display: block;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+        .sessions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .session-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .session-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        }
+        .session-number {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 40px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+        .session-title {
+            font-size: 1.1em;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .session-desc {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .midterm {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .midterm .session-number {
+            background: rgba(255,255,255,0.3);
+        }
+        .midterm .session-title,
+        .midterm .session-desc {
+            color: white;
+        }
+        .final {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        .final .session-number {
+            background: rgba(255,255,255,0.3);
+        }
+        .final .session-title,
+        .final .session-desc {
+            color: white;
+        }
+        footer {
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+            margin-top: 40px;
+            padding-top: 20px;
+        }
+        footer a {
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>制御理論基礎</h1>
+            <p>福井大学 工学部 電気電子情報工学科</p>
+        </header>
+
+        <div class="info-card">
+            <h2>講義情報</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong>対象</strong>
+                    3年次・4年次
+                </div>
+                <div class="info-item">
+                    <strong>開講学期</strong>
+                    前期 水曜2限
+                </div>
+                <div class="info-item">
+                    <strong>単位数</strong>
+                    2単位
+                </div>
+                <div class="info-item">
+                    <strong>担当教員</strong>
+                    重信 颯人
+                </div>
+            </div>
+        </div>
+
+        <div class="sessions-grid">
+            <a href="materials/session_01/" class="session-card">
+                <span class="session-number">1</span>
+                <div class="session-title">制御工学の全体像</div>
+                <div class="session-desc">制御とは何か、フィードバック制御の基本構造</div>
+            </a>
+            <a href="materials/session_02/" class="session-card">
+                <span class="session-number">2</span>
+                <div class="session-title">複素数とラプラス変換</div>
+                <div class="session-desc">複素数の表現と演算、ラプラス変換の性質</div>
+            </a>
+            <a href="materials/session_03/" class="session-card">
+                <span class="session-number">3</span>
+                <div class="session-title">LTIシステムとたたみ込み積分</div>
+                <div class="session-desc">線形時不変性、インパルス応答とたたみ込み</div>
+            </a>
+            <a href="materials/session_04/" class="session-card">
+                <span class="session-number">4</span>
+                <div class="session-title">伝達関数とブロック線図</div>
+                <div class="session-desc">伝達関数の定義と性質、極・零点</div>
+            </a>
+            <a href="materials/session_05/" class="session-card">
+                <span class="session-number">5</span>
+                <div class="session-title">周波数伝達関数と周波数応答</div>
+                <div class="session-desc">正弦波応答、Bode線図・Nyquist線図</div>
+            </a>
+            <a href="materials/session_06/" class="session-card">
+                <span class="session-number">6</span>
+                <div class="session-title">状態空間表現</div>
+                <div class="session-desc">状態方程式と出力方程式、状態遷移行列</div>
+            </a>
+            <a href="materials/session_07/" class="session-card midterm">
+                <span class="session-number">7</span>
+                <div class="session-title">中間試験対策・復習</div>
+                <div class="session-desc">前半の総復習と演習問題</div>
+            </a>
+            <a href="materials/session_08/" class="session-card">
+                <span class="session-number">8</span>
+                <div class="session-title">フィードバック制御とフィードフォワード制御</div>
+                <div class="session-desc">制御の目的と分類、2自由度制御</div>
+            </a>
+            <a href="materials/session_09/" class="session-card">
+                <span class="session-number">9</span>
+                <div class="session-title">LTIシステムの安定性</div>
+                <div class="session-desc">BIBO安定性、ラウス法による安定判別</div>
+            </a>
+            <a href="materials/session_10/" class="session-card">
+                <span class="session-number">10</span>
+                <div class="session-title">フィードバック制御系の安定性</div>
+                <div class="session-desc">ナイキスト判別法、安定余裕</div>
+            </a>
+            <a href="materials/session_11/" class="session-card">
+                <span class="session-number">11</span>
+                <div class="session-title">制御系の過渡特性</div>
+                <div class="session-desc">ステップ応答、極の配置と応答速度</div>
+            </a>
+            <a href="materials/session_12/" class="session-card">
+                <span class="session-number">12</span>
+                <div class="session-title">制御系の定常特性</div>
+                <div class="session-desc">定常偏差とその計算、内部モデル原理</div>
+            </a>
+            <a href="materials/session_13/" class="session-card">
+                <span class="session-number">13</span>
+                <div class="session-title">制御系の周波数特性・詳細</div>
+                <div class="session-desc">ゲイン余裕・位相余裕の評価</div>
+            </a>
+            <a href="materials/session_14/" class="session-card">
+                <span class="session-number">14</span>
+                <div class="session-title">制御系の設計法</div>
+                <div class="session-desc">PID制御、根軌跡法によるゲイン調整</div>
+            </a>
+            <a href="materials/session_15/" class="session-card final">
+                <span class="session-number">15</span>
+                <div class="session-title">期末試験対策・制御工学の展望</div>
+                <div class="session-desc">総復習と現代制御の発展</div>
+            </a>
+        </div>
+
+        <footer>
+            <p>福井大学 工学部 電気電子情報工学科</p>
+            <p><a href="https://github.com/lutelute/lec_ctrl_base_AG">GitHub Repository</a></p>
+        </footer>
+    </div>
+</body>
+</html>
